@@ -118,20 +118,15 @@ uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
 if uploaded_file is not None:
     sample_rate, data = wavfile.read(uploaded_file)
 
-    # Mono check
     if len(data.shape) == 2:
-        # Stereo/multi-channel audio: try estimating left/right by comparing channels
         left = data[:, 0]
         right = data[:, 1]
 
-        # Normalize channels
         left_norm = left / np.max(np.abs(left))
         right_norm = right / np.max(np.abs(right))
 
-        # Calculate mean absolute amplitude difference
         diff = np.mean(np.abs(left_norm) - np.abs(right_norm))
 
-        # Decide direction based on diff threshold
         if diff > 0.05:
             direction = "Left"
         elif diff < -0.05:
@@ -140,11 +135,14 @@ if uploaded_file is not None:
             direction = "Center/Indistinct"
 
         data = data.mean(axis=1)  # convert to mono for plotting
+
+        # Show the direction clearly on the page:
         st.success(f"🟢 Stereo audio detected. Estimated sound direction: **{direction}**")
 
     else:
         st.warning("⚠️ Single channel audio detected, left/right direction estimation unavailable.")
         data = data / np.max(np.abs(data))
+        direction = None
 
     # Normalize audio for plotting
     data = data / np.max(np.abs(data))
