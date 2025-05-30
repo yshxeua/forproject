@@ -8,7 +8,7 @@ st.markdown("""
     <style>
     /* Background */
     body, .stApp {
-        background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/cyberpunk-bg.jpg");
+        background-image: url("https://github.com/yshxeua/forproject/blob/main/1162247.jpg");
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
