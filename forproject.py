@@ -2,87 +2,115 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
-import streamlit as st
 
+# Cyberpunk style CSS
 st.markdown("""
     <style>
-    body {
-        background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/cyberpunk-bg.jpg");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-        color: #f1f1f1;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-st.title("🔊 Cyberpunk Audio Analyzer")
-st.write("Your app content goes here...")
-
-st.markdown("""
-    <style>
-    /* Set background image on the body */
-    body {
+    /* Background */
+    body, .stApp {
         background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/cyberpunk-bg.jpg");
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
-        background-repeat: no-repeat;
-        color: #f1f1f1;
-    }
-
-    /* Optional: add a transparent overlay to darken background */
-    .css-1v3fvcr {
-        background-color: rgba(0,0,0,0.6) !important;
-        border-radius: 10px;
-        padding: 20px;
-    }
-
-    h1, .css-1v3fvcr h1 {
+        color: #f0f0f0;
         font-family: 'Orbitron', sans-serif;
-        font-size: 48px;
-        color: #ff00ff;
-        text-shadow: 0 0 10px #ff00ff;
-        text-align: center;
     }
 
-    /* Customize uploader label */
+    /* Main container with translucent black and glowing border */
+    .css-1v3fvcr {
+        background-color: rgba(10, 10, 15, 0.75) !important;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow:
+          0 0 10px #ff00ff,
+          0 0 20px #ff00ff,
+          0 0 30px #00ffff,
+          0 0 40px #00ffff;
+        border: 2px solid #ff00ff;
+        max-width: 800px;
+        margin: auto;
+    }
+
+    /* Title styling */
+    h1, .css-1v3fvcr h1 {
+        color: #ff00ff;
+        text-align: center;
+        font-size: 3rem;
+        text-shadow:
+          0 0 10px #ff00ff,
+          0 0 20px #ff00ff,
+          0 0 30px #ff00ff;
+        margin-bottom: 1rem;
+    }
+
+    /* Subheaders with neon glow */
+    h2, h3, .stSubheader {
+        color: #00ffff;
+        text-shadow:
+          0 0 6px #00ffff,
+          0 0 12px #00ffff;
+        font-weight: 700;
+    }
+
+    /* File uploader label */
     .stFileUploader label {
         font-size: 18px;
         color: #00ffff;
-        font-weight: bold;
-        text-shadow: 0 0 8px #00ffff;
+        font-weight: 700;
+        text-shadow:
+          0 0 8px #00ffff;
     }
 
-    /* Customize button */
-    .stButton>button {
-        background-color: #00ffff;
+    /* Buttons neon style */
+    .stButton > button {
+        background: linear-gradient(90deg, #00ffff, #ff00ff);
         color: #000;
-        border: none;
-        border-radius: 10px;
+        font-weight: 700;
         font-size: 18px;
-        padding: 10px 20px;
-        box-shadow: 0 0 10px #00ffff;
-        transition: background-color 0.3s ease;
+        padding: 12px 25px;
+        border-radius: 15px;
+        border: none;
+        box-shadow:
+          0 0 10px #00ffff,
+          0 0 20px #ff00ff,
+          0 0 30px #ff00ff;
+        transition: all 0.3s ease;
+        cursor: pointer;
     }
 
-    .stButton>button:hover {
-        background-color: #ff00ff;
-        color: white;
+    .stButton > button:hover {
+        background: linear-gradient(90deg, #ff00ff, #00ffff);
+        color: #fff;
+        box-shadow:
+          0 0 20px #ff00ff,
+          0 0 30px #00ffff,
+          0 0 40px #00ffff,
+          0 0 50px #ff00ff;
+        transform: scale(1.05);
     }
 
-    /* Plot area background */
-    .css-1v3fvcr, .css-ffhzg2 {
-        background-color: rgba(0,0,0,0.6) !important;
-        padding: 20px;
-        border-radius: 10px;
+    /* Plot area container */
+    .css-ffhzg2 {
+        background-color: rgba(10, 10, 15, 0.8) !important;
+        border-radius: 15px;
+        padding: 15px;
+        box-shadow:
+          0 0 10px #00ffff,
+          0 0 20px #00ffff;
+        margin-bottom: 20px;
     }
-    </style>
 
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
+    /* Axes labels styling (matplotlib) */
+    .matplotlib.axes-label {
+        color: #00ffff !important;
+    }
+
+</style>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
+# Title inside container for centering & styling
 st.title("🔊 Cyberpunk Audio Analyzer")
 
 uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
