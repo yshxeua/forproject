@@ -3,17 +3,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 
-# Custom cyberpunk styling with background
 st.markdown("""
     <style>
-    .stApp {
+    /* Set background image on the body */
+    body {
         background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/cyberpunk-bg.jpg");
         background-size: cover;
         background-position: center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
         color: #f1f1f1;
     }
 
-    h1 {
+    /* Optional: add a transparent overlay to darken background */
+    .css-1v3fvcr {
+        background-color: rgba(0,0,0,0.6) !important;
+        border-radius: 10px;
+        padding: 20px;
+    }
+
+    h1, .css-1v3fvcr h1 {
         font-family: 'Orbitron', sans-serif;
         font-size: 48px;
         color: #ff00ff;
@@ -21,6 +30,7 @@ st.markdown("""
         text-align: center;
     }
 
+    /* Customize uploader label */
     .stFileUploader label {
         font-size: 18px;
         color: #00ffff;
@@ -28,6 +38,7 @@ st.markdown("""
         text-shadow: 0 0 8px #00ffff;
     }
 
+    /* Customize button */
     .stButton>button {
         background-color: #00ffff;
         color: #000;
@@ -36,6 +47,7 @@ st.markdown("""
         font-size: 18px;
         padding: 10px 20px;
         box-shadow: 0 0 10px #00ffff;
+        transition: background-color 0.3s ease;
     }
 
     .stButton>button:hover {
@@ -43,8 +55,9 @@ st.markdown("""
         color: white;
     }
 
-    .css-1kyxreq, .css-ffhzg2 {
-        background-color: rgba(0,0,0,0.6);
+    /* Plot area background */
+    .css-1v3fvcr, .css-ffhzg2 {
+        background-color: rgba(0,0,0,0.6) !important;
         padding: 20px;
         border-radius: 10px;
     }
@@ -81,4 +94,3 @@ if uploaded_file is not None:
     st.success(f"🟣 Loudest point at {max_time:.2f} seconds")
 
     st.info("This is a single-mic analysis. To estimate direction, record from multiple positions.")
-
