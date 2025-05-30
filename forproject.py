@@ -2,15 +2,13 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
-from pydub import AudioSegment
-import io
 
-# Cyberpunk style CSS with updated background image
+# Cyberpunk style CSS
 st.markdown("""
     <style>
     /* Background */
     body, .stApp {
-        background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/1162247.jpg");
+        background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/cyberpunk-bg.jpg");
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
@@ -112,75 +110,70 @@ st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
+# Title inside container for centering & styling
 st.title("🔊 DIRECTION OF ARRIVAL ESTIMATION USING MICROPHONE ARRAY")
 
-uploaded_file = st.file_uploader("Upload a WAV or M4A file", type=["wav", "m4a"])
-
-def read_audio_file(file):
-    if file.name.endswith(".wav"):
-        # Read wav file with scipy
-        sample_rate, data = wavfile.read(file)
-    elif file.name.endswith(".m4a"):
-        # Read m4a with pydub
-        audio = AudioSegment.from_file(file, format="m4a")
-        sample_rate = audio.frame_rate
-        samples = audio.get_array_of_samples()
-        data = np.array(samples).astype(np.float32)
-
-        # if stereo, shape it (pydub samples are interleaved)
-        if audio.channels == 2:
-            data = data.reshape((-1, 2))
-    else:
-        st.error("Unsupported file format!")
-        return None, None
-
-    return sample_rate, data
+uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
 
 if uploaded_file is not None:
-    sample_rate, data = read_audio_file(uploaded_file)
+    sample_rate, data = wavfile.read(uploaded_file)
 
-    if data is None:
-        st.stop()
+    if len(data.shape) == 2 and data.shape[1] == 2:
+        # Stereo audio: use real left/right channel comparison
+        left_channel = data[:, 0]
+        right_channel = data[:, 1]
 
-    if len(data.shape) == 2:
-        left = data[:, 0]
-        right = data[:, 1]
+        # Normalize channels
+        left_norm = left_channel / np.max(np.abs(left_channel))
+        right_norm = right_channel / np.max(np.abs(right_channel))
 
-        left_norm = left / np.max(np.abs(left))
-        right_norm = right / np.max(np.abs(right))
+        # Average absolute amplitude per channel
+        left_avg = np.mean(np.abs(left_norm))
+        right_avg = np.mean(np.abs(right_norm))
 
-        diff = np.mean(np.abs(left_norm) - np.abs(right_norm))
-
-        if diff > 0.05:
-            direction = "Left"
-        elif diff < -0.05:
-            direction = "Right"
+        if left_avg > right_avg * 1.1:
+            direction_msg = "🔊 Sound is dominant on the **LEFT** channel."
+        elif right_avg > left_avg * 1.1:
+            direction_msg = "🔊 Sound is dominant on the **RIGHT** channel."
         else:
-            direction = "Center/Indistinct"
+            direction_msg = "🔊 Sound levels are balanced between LEFT and RIGHT channels."
 
-        data = data.mean(axis=1)  # mono for plotting
-
-        st.success(f"🟢 Stereo audio detected. Estimated sound direction: **{direction}**")
+        # Mix down to mono for waveform plotting
+        data_mono = (left_channel + right_channel) / 2
+        data_norm = data_mono / np.max(np.abs(data_mono))
 
     else:
-        direction = "Center (Mono channel - direction estimation unavailable)"
-        st.info(f"⚠️ Single channel audio detected. Estimated sound direction: **{direction}**")
-        data = data / np.max(np.abs(data))  # normalize mono data
+        # Mono or non-stereo audio: heuristic based on waveform halves
+        data_mono = data if len(data.shape) == 1 else data.mean(axis=1)
+        data_norm = data_mono / np.max(np.abs(data_mono))
 
-    # Normalize for plotting
-    data = data / np.max(np.abs(data))
+        half = len(data_norm) // 2
+        left_avg = np.mean(np.abs(data_norm[:half]))
+        right_avg = np.mean(np.abs(data_norm[half:]))
 
+        if left_avg > right_avg * 1.1:
+            direction_msg = "⚠️ Mono audio detected — heuristic guess: Sound is dominant on the LEFT."
+        elif right_avg > left_avg * 1.1:
+            direction_msg = "⚠️ Mono audio detected — heuristic guess: Sound is dominant on the RIGHT."
+        else:
+            direction_msg = "⚠️ Mono audio detected — heuristic guess: Sound levels appear balanced."
+
+    # Plot waveform
     st.subheader("📈 Waveform")
-    time = np.linspace(0, len(data) / sample_rate, num=len(data))
+    time = np.linspace(0, len(data_norm) / sample_rate, num=len(data_norm))
     fig, ax = plt.subplots()
-    ax.plot(time, data, color="#00ffff")
+    ax.plot(time, data_norm, color="#00ffff")
     ax.set_facecolor("black")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
     st.pyplot(fig)
 
-    max_idx = np.argmax(np.abs(data))
+    # Loudest peak
+    max_idx = np.argmax(np.abs(data_norm))
     max_time = max_idx / sample_rate
     st.success(f"🟣 Loudest point at {max_time:.2f} seconds")
 
-    st.info("This is a single-mic analysis. To estimate direction more precisely, record from multiple microphones or channels.")
+    # Display direction message
+    st.info(direction_msg)
+
+    st.info("This is a single-mic analysis. To estimate direction, record from multiple positions.")
