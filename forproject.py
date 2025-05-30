@@ -2,6 +2,23 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
+import streamlit as st
+
+st.markdown("""
+    <style>
+    body {
+        background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/cyberpunk-bg.jpg");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        color: #f1f1f1;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("🔊 Cyberpunk Audio Analyzer")
+st.write("Your app content goes here...")
 
 st.markdown("""
     <style>
