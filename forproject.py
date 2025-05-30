@@ -110,7 +110,6 @@ st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
-# Title inside container for centering & styling
 st.title("🔊 DIRECTION OF ARRIVAL ESTIMATION USING MICROPHONE ARRAY")
 
 uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
@@ -134,20 +133,18 @@ if uploaded_file is not None:
         else:
             direction = "Center/Indistinct"
 
-        data = data.mean(axis=1)  # convert to mono for plotting
+        data = data.mean(axis=1)  # mono for plotting
 
-        # Show the direction clearly on the page:
         st.success(f"🟢 Stereo audio detected. Estimated sound direction: **{direction}**")
 
     else:
-        st.warning("⚠️ Single channel audio detected, left/right direction estimation unavailable.")
-        data = data / np.max(np.abs(data))
-        direction = None
+        direction = "Center (Mono channel - direction estimation unavailable)"
+        st.info(f"⚠️ Single channel audio detected. Estimated sound direction: **{direction}**")
+        data = data / np.max(np.abs(data))  # normalize mono data
 
-    # Normalize audio for plotting
+    # Normalize for plotting
     data = data / np.max(np.abs(data))
 
-    # Waveform plot
     st.subheader("📈 Waveform")
     time = np.linspace(0, len(data) / sample_rate, num=len(data))
     fig, ax = plt.subplots()
@@ -157,7 +154,6 @@ if uploaded_file is not None:
     ax.set_ylabel("Amplitude")
     st.pyplot(fig)
 
-    # Loudest peak detection
     max_idx = np.argmax(np.abs(data))
     max_time = max_idx / sample_rate
     st.success(f"🟣 Loudest point at {max_time:.2f} seconds")
