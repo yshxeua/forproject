@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 
-# Cyberpunk style CSS
+# Cyberpunk style CSS with clearer fonts
 st.markdown("""
     <style>
     /* Background */
@@ -12,13 +12,16 @@ st.markdown("""
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
-        color: #f0f0f0;
-        font-family: 'Orbitron', sans-serif;
+        color: #e0e0e0;
+        font-family: 'Poppins', 'Roboto', sans-serif;
+        font-weight: 400;
+        font-size: 18px;
+        line-height: 1.5;
     }
 
     /* Main container with translucent black and glowing border */
     .css-1v3fvcr {
-        background-color: rgba(10, 10, 15, 0.75) !important;
+        background-color: rgba(10, 10, 15, 0.85) !important;
         border-radius: 15px;
         padding: 25px;
         box-shadow:
@@ -31,34 +34,39 @@ st.markdown("""
         margin: auto;
     }
 
-    /* Title styling */
+    /* Title styling: Orbitron for cyberpunk feel */
     h1, .css-1v3fvcr h1 {
+        font-family: 'Orbitron', sans-serif;
         color: #ff00ff;
         text-align: center;
-        font-size: 3rem;
+        font-size: 3.5rem;
         text-shadow:
           0 0 10px #ff00ff,
           0 0 20px #ff00ff,
           0 0 30px #ff00ff;
         margin-bottom: 1rem;
+        font-weight: 700;
     }
 
-    /* Subheaders with neon glow */
+    /* Subheaders with neon glow and clearer font */
     h2, h3, .stSubheader {
         color: #00ffff;
         text-shadow:
-          0 0 6px #00ffff,
-          0 0 12px #00ffff;
+          0 0 8px #00ffff,
+          0 0 14px #00ffff;
         font-weight: 700;
+        font-family: 'Poppins', 'Roboto', sans-serif;
+        font-size: 1.8rem;
     }
 
     /* File uploader label */
     .stFileUploader label {
-        font-size: 18px;
+        font-size: 20px;
         color: #00ffff;
         font-weight: 700;
         text-shadow:
-          0 0 8px #00ffff;
+          0 0 10px #00ffff;
+        font-family: 'Poppins', 'Roboto', sans-serif;
     }
 
     /* Buttons neon style */
@@ -66,48 +74,51 @@ st.markdown("""
         background: linear-gradient(90deg, #00ffff, #ff00ff);
         color: #000;
         font-weight: 700;
-        font-size: 18px;
-        padding: 12px 25px;
+        font-size: 20px;
+        padding: 14px 30px;
         border-radius: 15px;
         border: none;
         box-shadow:
-          0 0 10px #00ffff,
-          0 0 20px #ff00ff,
-          0 0 30px #ff00ff;
+          0 0 12px #00ffff,
+          0 0 24px #ff00ff,
+          0 0 36px #ff00ff;
         transition: all 0.3s ease;
         cursor: pointer;
+        font-family: 'Poppins', 'Roboto', sans-serif;
     }
 
     .stButton > button:hover {
         background: linear-gradient(90deg, #ff00ff, #00ffff);
         color: #fff;
         box-shadow:
-          0 0 20px #ff00ff,
-          0 0 30px #00ffff,
-          0 0 40px #00ffff,
-          0 0 50px #ff00ff;
+          0 0 24px #ff00ff,
+          0 0 36px #00ffff,
+          0 0 48px #00ffff,
+          0 0 60px #ff00ff;
         transform: scale(1.05);
     }
 
     /* Plot area container */
     .css-ffhzg2 {
-        background-color: rgba(10, 10, 15, 0.8) !important;
+        background-color: rgba(10, 10, 15, 0.9) !important;
         border-radius: 15px;
-        padding: 15px;
+        padding: 20px;
         box-shadow:
-          0 0 10px #00ffff,
-          0 0 20px #00ffff;
-        margin-bottom: 20px;
+          0 0 12px #00ffff,
+          0 0 24px #00ffff;
+        margin-bottom: 25px;
     }
 
     /* Axes labels styling (matplotlib) */
     .matplotlib.axes-label {
         color: #00ffff !important;
+        font-family: 'Poppins', 'Roboto', sans-serif;
+        font-weight: 600;
+        font-size: 14px;
     }
-
 </style>
 
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
 # Title inside container for centering & styling
