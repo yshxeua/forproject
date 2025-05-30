@@ -2,6 +2,8 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
+from pydub import AudioSegment
+import io
 
 # Cyberpunk style CSS with updated background image
 st.markdown("""
@@ -112,10 +114,33 @@ st.markdown("""
 
 st.title("🔊 DIRECTION OF ARRIVAL ESTIMATION USING MICROPHONE ARRAY")
 
-uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
+uploaded_file = st.file_uploader("Upload a WAV or M4A file", type=["wav", "m4a"])
+
+def read_audio_file(file):
+    if file.name.endswith(".wav"):
+        # Read wav file with scipy
+        sample_rate, data = wavfile.read(file)
+    elif file.name.endswith(".m4a"):
+        # Read m4a with pydub
+        audio = AudioSegment.from_file(file, format="m4a")
+        sample_rate = audio.frame_rate
+        samples = audio.get_array_of_samples()
+        data = np.array(samples).astype(np.float32)
+
+        # if stereo, shape it (pydub samples are interleaved)
+        if audio.channels == 2:
+            data = data.reshape((-1, 2))
+    else:
+        st.error("Unsupported file format!")
+        return None, None
+
+    return sample_rate, data
 
 if uploaded_file is not None:
-    sample_rate, data = wavfile.read(uploaded_file)
+    sample_rate, data = read_audio_file(uploaded_file)
+
+    if data is None:
+        st.stop()
 
     if len(data.shape) == 2:
         left = data[:, 0]
