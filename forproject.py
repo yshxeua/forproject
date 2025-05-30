@@ -6,7 +6,6 @@ from scipy.io import wavfile
 # Cyberpunk style CSS
 st.markdown("""
     <style>
-    /* Background */
     body, .stApp {
         background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/cyberpunk-bg.jpg");
         background-size: cover;
@@ -15,8 +14,6 @@ st.markdown("""
         color: #f0f0f0;
         font-family: 'Orbitron', sans-serif;
     }
-
-    /* Main container with translucent black and glowing border */
     .css-1v3fvcr {
         background-color: rgba(10, 10, 15, 0.75) !important;
         border-radius: 15px;
@@ -30,8 +27,6 @@ st.markdown("""
         max-width: 800px;
         margin: auto;
     }
-
-    /* Title styling */
     h1, .css-1v3fvcr h1 {
         color: #ff00ff;
         text-align: center;
@@ -42,8 +37,6 @@ st.markdown("""
           0 0 30px #ff00ff;
         margin-bottom: 1rem;
     }
-
-    /* Subheaders with neon glow */
     h2, h3, .stSubheader {
         color: #00ffff;
         text-shadow:
@@ -51,8 +44,6 @@ st.markdown("""
           0 0 12px #00ffff;
         font-weight: 700;
     }
-
-    /* File uploader label */
     .stFileUploader label {
         font-size: 18px;
         color: #00ffff;
@@ -60,8 +51,6 @@ st.markdown("""
         text-shadow:
           0 0 8px #00ffff;
     }
-
-    /* Buttons neon style */
     .stButton > button {
         background: linear-gradient(90deg, #00ffff, #ff00ff);
         color: #000;
@@ -77,7 +66,6 @@ st.markdown("""
         transition: all 0.3s ease;
         cursor: pointer;
     }
-
     .stButton > button:hover {
         background: linear-gradient(90deg, #ff00ff, #00ffff);
         color: #fff;
@@ -88,8 +76,6 @@ st.markdown("""
           0 0 50px #ff00ff;
         transform: scale(1.05);
     }
-
-    /* Plot area container */
     .css-ffhzg2 {
         background-color: rgba(10, 10, 15, 0.8) !important;
         border-radius: 15px;
@@ -99,18 +85,13 @@ st.markdown("""
           0 0 20px #00ffff;
         margin-bottom: 20px;
     }
-
-    /* Axes labels styling (matplotlib) */
     .matplotlib.axes-label {
         color: #00ffff !important;
     }
-
 </style>
-
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
-# Title inside container for centering & styling
 st.title("🔊 DIRECTION OF ARRIVAL ESTIMATION USING MICROPHONE ARRAY")
 
 uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
@@ -119,46 +100,33 @@ if uploaded_file is not None:
     sample_rate, data = wavfile.read(uploaded_file)
 
     if len(data.shape) == 2 and data.shape[1] == 2:
-        # Stereo audio: use real left/right channel comparison
-        left_channel = data[:, 0]
-        right_channel = data[:, 1]
+        left = data[:, 0]
+        right = data[:, 1]
 
-        # Normalize channels
-        left_norm = left_channel / np.max(np.abs(left_channel))
-        right_norm = right_channel / np.max(np.abs(right_channel))
+        # Normalize
+        left_norm = left / np.max(np.abs(left))
+        right_norm = right / np.max(np.abs(right))
 
-        # Average absolute amplitude per channel
-        left_avg = np.mean(np.abs(left_norm))
-        right_avg = np.mean(np.abs(right_norm))
+        # Cross-correlation to estimate time delay
+        correlation = np.correlate(left_norm, right_norm, "full")
+        lag = correlation.argmax() - (len(right_norm) - 1)
+        time_diff = lag / sample_rate
 
-        if left_avg > right_avg * 1.1:
-            direction_msg = "🔊 Sound is dominant on the **LEFT** channel."
-        elif right_avg > left_avg * 1.1:
-            direction_msg = "🔊 Sound is dominant on the **RIGHT** channel."
+        if lag > 200:
+            direction_msg = f"🔊 Sound arrives earlier on the LEFT (delay: {time_diff:.5f}s)"
+        elif lag < -200:
+            direction_msg = f"🔊 Sound arrives earlier on the RIGHT (delay: {abs(time_diff):.5f}s)"
         else:
-            direction_msg = "🔊 Sound levels are balanced between LEFT and RIGHT channels."
+            direction_msg = "🔊 Sound appears synchronized or central."
 
-        # Mix down to mono for waveform plotting
-        data_mono = (left_channel + right_channel) / 2
+        data_mono = (left + right) / 2
         data_norm = data_mono / np.max(np.abs(data_mono))
 
     else:
-        # Mono or non-stereo audio: heuristic based on waveform halves
         data_mono = data if len(data.shape) == 1 else data.mean(axis=1)
         data_norm = data_mono / np.max(np.abs(data_mono))
+        direction_msg = "⚠️ Mono audio detected — direction estimation is limited."
 
-        half = len(data_norm) // 2
-        left_avg = np.mean(np.abs(data_norm[:half]))
-        right_avg = np.mean(np.abs(data_norm[half:]))
-
-        if left_avg > right_avg * 1.1:
-            direction_msg = "⚠️ Mono audio detected — heuristic guess: Sound is dominant on the LEFT."
-        elif right_avg > left_avg * 1.1:
-            direction_msg = "⚠️ Mono audio detected — heuristic guess: Sound is dominant on the RIGHT."
-        else:
-            direction_msg = "⚠️ Mono audio detected — heuristic guess: Sound levels appear balanced."
-
-    # Plot waveform
     st.subheader("📈 Waveform")
     time = np.linspace(0, len(data_norm) / sample_rate, num=len(data_norm))
     fig, ax = plt.subplots()
@@ -168,12 +136,9 @@ if uploaded_file is not None:
     ax.set_ylabel("Amplitude")
     st.pyplot(fig)
 
-    # Loudest peak
     max_idx = np.argmax(np.abs(data_norm))
     max_time = max_idx / sample_rate
     st.success(f"🟣 Loudest point at {max_time:.2f} seconds")
 
-    # Display direction message
     st.info(direction_msg)
-
-    st.info("This is a single-mic analysis. To estimate direction, record from multiple positions.")
+    st.info("Cross-correlation is used to estimate time delay between stereo channels.")
