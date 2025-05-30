@@ -3,66 +3,82 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 
-# Apply custom CSS for Stray theme
+# Custom cyberpunk styling with background
 st.markdown("""
     <style>
-    body {
-        background-color: #0c0c0c;
-        color: #f8f8f2;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
     .stApp {
-        background-color: #0c0c0c;
+        background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/cyberpunk-bg.jpg");
+        background-size: cover;
+        background-position: center;
+        color: #f1f1f1;
     }
+
     h1 {
+        font-family: 'Orbitron', sans-serif;
         font-size: 48px;
-        color: #f9a825; /* Stray orange */
-        text-shadow: 0 0 10px #f9a825;
+        color: #ff00ff;
+        text-shadow: 0 0 10px #ff00ff;
+        text-align: center;
     }
+
     .stFileUploader label {
+        font-size: 18px;
         color: #00ffff;
         font-weight: bold;
+        text-shadow: 0 0 8px #00ffff;
     }
+
     .stButton>button {
-        background-color: #f9a825;
-        color: black;
+        background-color: #00ffff;
+        color: #000;
         border: none;
         border-radius: 10px;
+        font-size: 18px;
         padding: 10px 20px;
-        font-size: 16px;
+        box-shadow: 0 0 10px #00ffff;
     }
+
     .stButton>button:hover {
-        background-color: #ffd740;
+        background-color: #ff00ff;
+        color: white;
+    }
+
+    .css-1kyxreq, .css-ffhzg2 {
+        background-color: rgba(0,0,0,0.6);
+        padding: 20px;
+        border-radius: 10px;
     }
     </style>
+
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
-# App UI
-st.title("Sound Detection from Uploaded Audio")
+st.title("🔊 Cyberpunk Audio Analyzer")
 
 uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
 
 if uploaded_file is not None:
     sample_rate, data = wavfile.read(uploaded_file)
 
-    # Mono conversion if stereo
+    # Mono check
     if len(data.shape) == 2:
         data = data.mean(axis=1)
-    data = data / np.max(np.abs(data))  # Normalize
+    data = data / np.max(np.abs(data))
 
-    # Plot waveform
-    st.subheader("Waveform")
+    # Waveform
+    st.subheader("📈 Waveform")
     time = np.linspace(0, len(data) / sample_rate, num=len(data))
     fig, ax = plt.subplots()
-    ax.plot(time, data, color="#00ffff")  # Neon cyan
-    ax.set_facecolor("#1e1e1e")
+    ax.plot(time, data, color="#00ffff")
+    ax.set_facecolor("black")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
     st.pyplot(fig)
 
-    # Loudest point
+    # Loudest peak
     max_idx = np.argmax(np.abs(data))
     max_time = max_idx / sample_rate
-    st.success(f"Loudest sound detected at {max_time:.2f} seconds")
+    st.success(f"🟣 Loudest point at {max_time:.2f} seconds")
 
-    st.info("This simulation uses one mic. For direction, record from different angles or rotate mic.")
+    st.info("This is a single-mic analysis. To estimate direction, record from multiple positions.")
+
