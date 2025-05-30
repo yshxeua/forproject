@@ -3,25 +3,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 
-# Cyberpunk style CSS with clearer fonts
+# Cyberpunk style CSS with updated background image
 st.markdown("""
     <style>
     /* Background */
     body, .stApp {
-        background-image: url("https://github.com/yshxeua/forproject/blob/main/1162247.jpg");
+        background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/1162247.jpg");
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
-        color: #e0e0e0;
-        font-family: 'Poppins', 'Roboto', sans-serif;
-        font-weight: 400;
-        font-size: 18px;
-        line-height: 1.5;
+        color: #f0f0f0;
+        font-family: 'Orbitron', sans-serif;
     }
 
     /* Main container with translucent black and glowing border */
     .css-1v3fvcr {
-        background-color: rgba(10, 10, 15, 0.85) !important;
+        background-color: rgba(10, 10, 15, 0.75) !important;
         border-radius: 15px;
         padding: 25px;
         box-shadow:
@@ -34,39 +31,34 @@ st.markdown("""
         margin: auto;
     }
 
-    /* Title styling: Orbitron for cyberpunk feel */
+    /* Title styling */
     h1, .css-1v3fvcr h1 {
-        font-family: 'Orbitron', sans-serif;
         color: #ff00ff;
         text-align: center;
-        font-size: 3.5rem;
+        font-size: 3rem;
         text-shadow:
           0 0 10px #ff00ff,
           0 0 20px #ff00ff,
           0 0 30px #ff00ff;
         margin-bottom: 1rem;
-        font-weight: 700;
     }
 
-    /* Subheaders with neon glow and clearer font */
+    /* Subheaders with neon glow */
     h2, h3, .stSubheader {
         color: #00ffff;
         text-shadow:
-          0 0 8px #00ffff,
-          0 0 14px #00ffff;
+          0 0 6px #00ffff,
+          0 0 12px #00ffff;
         font-weight: 700;
-        font-family: 'Poppins', 'Roboto', sans-serif;
-        font-size: 1.8rem;
     }
 
     /* File uploader label */
     .stFileUploader label {
-        font-size: 20px;
+        font-size: 18px;
         color: #00ffff;
         font-weight: 700;
         text-shadow:
-          0 0 10px #00ffff;
-        font-family: 'Poppins', 'Roboto', sans-serif;
+          0 0 8px #00ffff;
     }
 
     /* Buttons neon style */
@@ -74,51 +66,48 @@ st.markdown("""
         background: linear-gradient(90deg, #00ffff, #ff00ff);
         color: #000;
         font-weight: 700;
-        font-size: 20px;
-        padding: 14px 30px;
+        font-size: 18px;
+        padding: 12px 25px;
         border-radius: 15px;
         border: none;
         box-shadow:
-          0 0 12px #00ffff,
-          0 0 24px #ff00ff,
-          0 0 36px #ff00ff;
+          0 0 10px #00ffff,
+          0 0 20px #ff00ff,
+          0 0 30px #ff00ff;
         transition: all 0.3s ease;
         cursor: pointer;
-        font-family: 'Poppins', 'Roboto', sans-serif;
     }
 
     .stButton > button:hover {
         background: linear-gradient(90deg, #ff00ff, #00ffff);
         color: #fff;
         box-shadow:
-          0 0 24px #ff00ff,
-          0 0 36px #00ffff,
-          0 0 48px #00ffff,
-          0 0 60px #ff00ff;
+          0 0 20px #ff00ff,
+          0 0 30px #00ffff,
+          0 0 40px #00ffff,
+          0 0 50px #ff00ff;
         transform: scale(1.05);
     }
 
     /* Plot area container */
     .css-ffhzg2 {
-        background-color: rgba(10, 10, 15, 0.9) !important;
+        background-color: rgba(10, 10, 15, 0.8) !important;
         border-radius: 15px;
-        padding: 20px;
+        padding: 15px;
         box-shadow:
-          0 0 12px #00ffff,
-          0 0 24px #00ffff;
-        margin-bottom: 25px;
+          0 0 10px #00ffff,
+          0 0 20px #00ffff;
+        margin-bottom: 20px;
     }
 
     /* Axes labels styling (matplotlib) */
     .matplotlib.axes-label {
         color: #00ffff !important;
-        font-family: 'Poppins', 'Roboto', sans-serif;
-        font-weight: 600;
-        font-size: 14px;
     }
+
 </style>
 
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
 # Title inside container for centering & styling
@@ -129,62 +118,50 @@ uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
 if uploaded_file is not None:
     sample_rate, data = wavfile.read(uploaded_file)
 
-    if len(data.shape) == 2 and data.shape[1] == 2:
-        # Stereo audio: use real left/right channel comparison
-        left_channel = data[:, 0]
-        right_channel = data[:, 1]
+    # Mono check
+    if len(data.shape) == 2:
+        # Stereo/multi-channel audio: try estimating left/right by comparing channels
+        left = data[:, 0]
+        right = data[:, 1]
 
         # Normalize channels
-        left_norm = left_channel / np.max(np.abs(left_channel))
-        right_norm = right_channel / np.max(np.abs(right_channel))
+        left_norm = left / np.max(np.abs(left))
+        right_norm = right / np.max(np.abs(right))
 
-        # Average absolute amplitude per channel
-        left_avg = np.mean(np.abs(left_norm))
-        right_avg = np.mean(np.abs(right_norm))
+        # Calculate mean absolute amplitude difference
+        diff = np.mean(np.abs(left_norm) - np.abs(right_norm))
 
-        if left_avg > right_avg * 1.1:
-            direction_msg = "🔊 Sound is dominant on the **LEFT** channel."
-        elif right_avg > left_avg * 1.1:
-            direction_msg = "🔊 Sound is dominant on the **RIGHT** channel."
+        # Decide direction based on diff threshold
+        if diff > 0.05:
+            direction = "Left"
+        elif diff < -0.05:
+            direction = "Right"
         else:
-            direction_msg = "🔊 Sound levels are balanced between LEFT and RIGHT channels."
+            direction = "Center/Indistinct"
 
-        # Mix down to mono for waveform plotting
-        data_mono = (left_channel + right_channel) / 2
-        data_norm = data_mono / np.max(np.abs(data_mono))
+        data = data.mean(axis=1)  # convert to mono for plotting
+        st.success(f"🟢 Stereo audio detected. Estimated sound direction: **{direction}**")
 
     else:
-        # Mono or non-stereo audio: heuristic based on waveform halves
-        data_mono = data if len(data.shape) == 1 else data.mean(axis=1)
-        data_norm = data_mono / np.max(np.abs(data_mono))
+        st.warning("⚠️ Single channel audio detected, left/right direction estimation unavailable.")
+        data = data / np.max(np.abs(data))
 
-        half = len(data_norm) // 2
-        left_avg = np.mean(np.abs(data_norm[:half]))
-        right_avg = np.mean(np.abs(data_norm[half:]))
+    # Normalize audio for plotting
+    data = data / np.max(np.abs(data))
 
-        if left_avg > right_avg * 1.1:
-            direction_msg = "⚠️ Mono audio detected — heuristic guess: Sound is dominant on the LEFT."
-        elif right_avg > left_avg * 1.1:
-            direction_msg = "⚠️ Mono audio detected — heuristic guess: Sound is dominant on the RIGHT."
-        else:
-            direction_msg = "⚠️ Mono audio detected — heuristic guess: Sound levels appear balanced."
-
-    # Plot waveform
+    # Waveform plot
     st.subheader("📈 Waveform")
-    time = np.linspace(0, len(data_norm) / sample_rate, num=len(data_norm))
+    time = np.linspace(0, len(data) / sample_rate, num=len(data))
     fig, ax = plt.subplots()
-    ax.plot(time, data_norm, color="#00ffff")
+    ax.plot(time, data, color="#00ffff")
     ax.set_facecolor("black")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
     st.pyplot(fig)
 
-    # Loudest peak
-    max_idx = np.argmax(np.abs(data_norm))
+    # Loudest peak detection
+    max_idx = np.argmax(np.abs(data))
     max_time = max_idx / sample_rate
     st.success(f"🟣 Loudest point at {max_time:.2f} seconds")
 
-    # Display direction message
-    st.info(direction_msg)
-
-    st.info("This is a single-mic analysis. To estimate direction, record from multiple positions.")
+    st.info("This is a single-mic analysis. To estimate direction more precisely, record from multiple microphones or channels.")
