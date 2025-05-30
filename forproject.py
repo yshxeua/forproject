@@ -111,7 +111,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Title inside container for centering & styling
-st.title("🔊 Cyberpunk Audio Analyzer")
+st.title("🔊 DIRECTION OF ARRIVAL ESTIMATION USING MICROPHONE ARRAY")
 
 uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
 
