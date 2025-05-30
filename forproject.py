@@ -1,36 +1,37 @@
 import streamlit as st
-import sounddevice as sd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.io import wavfile
 
-st.title("Single Microphone Sound Detection")
+st.title("Sound Detection from Uploaded Audio")
 
-duration = st.slider("Recording duration (seconds)", 1, 10, 3)
+# File uploader
+uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
 
-if st.button("Start Recording"):
-    st.write("Recording...")
-    fs = 44100  # Sampling frequency
-    recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
-    sd.wait()
-    st.write("Recording complete.")
+if uploaded_file is not None:
+    # Read WAV file
+    sample_rate, data = wavfile.read(uploaded_file)
 
-    # Flatten the array
-    signal = recording.flatten()
+    # Convert stereo to mono if necessary
+    if len(data.shape) == 2:
+        data = data.mean(axis=1)
 
-    # Plot the waveform
+    # Normalize
+    data = data / np.max(np.abs(data))
+
+    # Plot waveform
     st.subheader("Waveform")
+    time = np.linspace(0, len(data) / sample_rate, num=len(data))
     fig, ax = plt.subplots()
-    time = np.linspace(0, duration, len(signal))
-    ax.plot(time, signal)
-    ax.set_xlabel("Time [s]")
+    ax.plot(time, data)
+    ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
     st.pyplot(fig)
 
-    # Find loudest moment
-    max_idx = np.argmax(np.abs(signal))
-    max_time = max_idx / fs
+    # Detect loudest sound
+    max_idx = np.argmax(np.abs(data))
+    max_time = max_idx / sample_rate
     st.success(f"Loudest sound detected at {max_time:.2f} seconds")
 
-    # Simulated direction output
-    st.info("⚠ With only one mic, we can't detect direction directly.")
-    st.write("You could rotate the mic and log loudest response to guess direction.")
+    # Simulated direction note
+    st.info("This simulation assumes one microphone. To guess direction, use multiple recordings from different mic positions.")
