@@ -11,15 +11,10 @@ import time
 MIC_DISTANCE = 0.2
 SPEED_OF_SOUND = 343
 SAMPLE_RATE = 48000
-SOUND_THRESHOLD = 0.01  # RMS threshold to detect sound presence
+SOUND_THRESHOLD = 0.01
 
 st.set_page_config(page_title="Real-Time DoA Estimation", layout="centered")
 st.title("🎤 Real-Time Direction-of-Arrival Estimation")
-
-st.markdown("""
-This app captures audio **in real time** using a stereo mic setup (like AirPods or stereo USB mics),  
-then estimates the **direction of arrival (DoA)** of the sound using **TDOA** and **cross-correlation**.
-""")
 
 placeholder_waveform = st.empty()
 placeholder_tdoa = st.empty()
@@ -36,73 +31,111 @@ class AudioProcessor(AudioProcessorBase):
     latest_tdoa = None
     latest_angle = None
     sound_detected = False
-    
+    input_channels = 0
+
     def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
         audio = frame.to_ndarray()
+        # Debug: print(audio.shape)
         
-        if audio.shape[0] < 2:
-            self.sound_detected = False
-            return frame
-        
-        left = audio[0::2]
-        right = audio[1::2]
+        if len(audio.shape) == 1:
+            # Mono input
+            self.input_channels = 1
+            mono = audio
+            if np.max(np.abs(mono)) > 0:
+                mono = mono / np.max(np.abs(mono))
+            if is_sound_present(mono):
+                self.sound_detected = True
+                AudioProcessor.latest_audio = audio.copy()
+            else:
+                self.sound_detected = False
 
-        # Normalize
+            AudioProcessor.latest_tdoa = None
+            AudioProcessor.latest_angle = None
+
+        elif len(audio.shape) == 2 and audio.shape[0] >= 2:
+            # Stereo input
+            self.input_channels = audio.shape[0]
+            left = audio[0]
+            right = audio[1]
+            if np.max(np.abs(left)) > 0:
+                left = left / np.max(np.abs(left))
+            if np.max(np.abs(right)) > 0:
+                right = right / np.max(np.abs(right))
+
+            if is_sound_present(left) or is_sound_present(right):
+                self.sound_detected = True
+                AudioProcessor.latest_audio = audio.copy()
+                corr = correlate(left, right, mode='full')
+                lags = np.arange(-len(left) + 1, len(left))
+                lag = lags[np.argmax(corr)]
+                tdoa = lag / SAMPLE_RATE
+                AudioProcessor.latest_tdoa = tdoa
+
+                try:
+                    angle_rad = asin(tdoa * SPEED_OF_SOUND / MIC_DISTANCE)
+                    angle_deg = degrees(angle_rad)
+                except ValueError:
+                    angle_deg = None
+                AudioProcessor.latest_angle = angle_deg
+            else:
+                self.sound_detected = False
+                AudioProcessor.latest_tdoa = None
+                AudioProcessor.latest_angle = None
+
+        else:
+            # Unsupported shape or zero channels
+            self.sound_detected = False
+            AudioProcessor.latest_audio = None
+            AudioProcessor.latest_tdoa = None
+            AudioProcessor.latest_angle = None
+
+        return frame
+
+def plot_waveform(audio):
+    if audio is None:
+        placeholder_waveform.empty()
+        return
+
+    if len(audio.shape) == 1:
+        mono = audio
+        if np.max(np.abs(mono)) > 0:
+            mono = mono / np.max(np.abs(mono))
+        t = np.linspace(0, len(mono) / SAMPLE_RATE, len(mono))
+        fig, ax = plt.subplots(figsize=(6, 2))
+        ax.plot(t, mono, color='blue')
+        ax.set_title("Mono Mic Input")
+        ax.set_xlabel("Time [s]")
+        ax.grid(True)
+        placeholder_waveform.pyplot(fig)
+
+    elif len(audio.shape) == 2 and audio.shape[0] >= 2:
+        left = audio[0]
+        right = audio[1]
+
         if np.max(np.abs(left)) > 0:
             left = left / np.max(np.abs(left))
         if np.max(np.abs(right)) > 0:
             right = right / np.max(np.abs(right))
 
-        # Sound detection
-        if is_sound_present(left) or is_sound_present(right):
-            self.sound_detected = True
-            
-            # Save latest audio for plotting
-            AudioProcessor.latest_audio = audio.copy()
-
-            # Cross-correlation and TDOA
-            corr = correlate(left, right, mode='full')
-            lags = np.arange(-len(left) + 1, len(left))
-            lag = lags[np.argmax(corr)]
-            tdoa = lag / SAMPLE_RATE
-            AudioProcessor.latest_tdoa = tdoa
-
-            try:
-                angle_rad = asin(tdoa * SPEED_OF_SOUND / MIC_DISTANCE)
-                angle_deg = degrees(angle_rad)
-            except ValueError:
-                angle_deg = None
-            
-            AudioProcessor.latest_angle = angle_deg
-        else:
-            self.sound_detected = False
-
-        return frame
-
-def plot_waveform(audio):
-    left = audio[0::2]
-    right = audio[1::2]
-
-    if np.max(np.abs(left)) > 0:
-        left = left / np.max(np.abs(left))
-    if np.max(np.abs(right)) > 0:
-        right = right / np.max(np.abs(right))
-
-    t = np.linspace(0, len(left) / SAMPLE_RATE, len(left))
-    fig, axs = plt.subplots(2, 1, figsize=(6, 3), sharex=True)
-    axs[0].plot(t, left, color='blue')
-    axs[0].set_title("Mic 1 (Left)")
-    axs[1].plot(t, right, color='red')
-    axs[1].set_title("Mic 2 (Right)")
-    axs[1].set_xlabel("Time [s]")
-    for ax in axs:
-        ax.grid(True)
-    placeholder_waveform.pyplot(fig)
+        t = np.linspace(0, len(left) / SAMPLE_RATE, len(left))
+        fig, axs = plt.subplots(2, 1, figsize=(6, 3), sharex=True)
+        axs[0].plot(t, left, color='blue')
+        axs[0].set_title("Mic 1 (Left)")
+        axs[1].plot(t, right, color='red')
+        axs[1].set_title("Mic 2 (Right)")
+        axs[1].set_xlabel("Time [s]")
+        for ax in axs:
+            ax.grid(True)
+        placeholder_waveform.pyplot(fig)
 
 def plot_angle(angle_deg):
-    if angle_deg is not None and abs(angle_deg) <= 90:
-        placeholder_angle.success(f"📐 Estimated Angle: `{angle_deg:.2f}°`")
+    if angle_deg is None:
+        placeholder_angle.info("ℹ️ Mono input detected — DoA estimation unavailable.")
+        placeholder_polar.empty()
+        return
 
+    if abs(angle_deg) <= 90:
+        placeholder_angle.success(f"📐 Estimated Angle: `{angle_deg:.2f}°`")
         fig2 = plt.figure(figsize=(4, 4))
         ax = fig2.add_subplot(111, polar=True)
         ax.set_theta_zero_location('front')
@@ -112,11 +145,14 @@ def plot_angle(angle_deg):
         ax.set_title("Direction of Arrival")
         placeholder_polar.pyplot(fig2)
     else:
-        placeholder_angle.error("🚫 Angle estimation failed. Use stereo input.")
+        placeholder_angle.error("🚫 Angle estimation failed.")
         placeholder_polar.empty()
 
 def plot_tdoa(tdoa):
-    placeholder_tdoa.markdown(f"🕒 **TDOA**: `{tdoa * 1e6:.2f}` microseconds")
+    if tdoa is not None:
+        placeholder_tdoa.markdown(f"🕒 **TDOA**: `{tdoa * 1e6:.2f}` microseconds")
+    else:
+        placeholder_tdoa.empty()
 
 webrtc_ctx = webrtc_streamer(
     key="doa-audio",
@@ -125,7 +161,6 @@ webrtc_ctx = webrtc_streamer(
     media_stream_constraints={"audio": True, "video": False}
 )
 
-# Main loop: refresh every second
 while True:
     if AudioProcessor.latest_audio is not None:
         plot_waveform(AudioProcessor.latest_audio)
@@ -133,7 +168,6 @@ while True:
         plot_tdoa(AudioProcessor.latest_tdoa)
     plot_angle(AudioProcessor.latest_angle)
 
-    # Show sound detection status
     if hasattr(webrtc_ctx.audio_processor, "sound_detected"):
         if webrtc_ctx.audio_processor.sound_detected:
             placeholder_status.success("🔊 Sound detected")
