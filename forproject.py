@@ -92,5 +92,3 @@ if file1 and file2:
             ax.set_yticklabels([])
             ax.set_title("Estimated Sound Direction", color='blue')
             st.pyplot(fig2)
-
-
