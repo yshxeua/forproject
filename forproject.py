@@ -2,7 +2,7 @@ MIC_DISTANCE = 0.2  # meters
 SPEED_OF_SOUND = 343  # m/s
 
 st.title("🎤 Direction-of-Arrival Estimation (Two Stereo WAVs, Mono Channels Extracted)")
-st.title("🎤 Direction-of-Arrival Estimation with Auto Mono-to-Stereo Conversion")
+st.title("🎤 Direction-of-Arrival Estimation with Auto Mono-to-Stereo Conversion")Add commentMore actions
 st.markdown("""
 Upload **two stereo WAV files** recorded from microphones placed apart.
 The app extracts the **left channel from the first file** and the **right channel from the second file**,
