@@ -1,4 +1,4 @@
-import streamlit as stMore actions
+import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
@@ -9,22 +9,13 @@ from math import asin, degrees
 MIC_DISTANCE = 0.2  # meters
 SPEED_OF_SOUND = 343  # m/s
 
-st.title("🎤 Direction-of-Arrival Estimation (Two Stereo WAVs, Mono Channels Extracted)")
 st.title("🎤 Direction-of-Arrival Estimation with Auto Mono-to-Stereo Conversion")
 st.markdown("""
-Upload **two stereo WAV files** recorded from microphones placed apart.
-The app extracts the **left channel from the first file** and the **right channel from the second file**,
-calculates the TDOA, estimates the angle of arrival, and shows:
-- Waveforms of both signals
-- Estimated angle in degrees
-- Polar plot visualization
 Upload **two WAV files** (mono or stereo). If mono, the app will convert them to stereo by duplicating the channel.
 - Left channel from file 1 and right channel from file 2 are used for DoA estimation.
 - Waveforms, TDOA, estimated angle, and polar plot will be displayed.
 """)
 
-file1 = st.file_uploader("Upload stereo WAV file 1 (will extract LEFT channel)", type=["wav"])
-file2 = st.file_uploader("Upload stereo WAV file 2 (will extract RIGHT channel)", type=["wav"])
 def ensure_stereo(data):
     """Convert mono to stereo by duplicating the channel if needed."""
     if data.ndim == 1:
@@ -44,10 +35,7 @@ if file1 and file2:
 
     if sr1 != sr2:
         st.error("⚠️ Sampling rates do not match.")
-    elif data1.ndim != 2 or data1.shape[1] < 2 or data2.ndim != 2 or data2.shape[1] < 2:
-        st.error("⚠️ Both files must be stereo (2 channels minimum).")
     else:
-        # Extract left channel from first file and right channel from second file
         data1 = ensure_stereo(data1)
         data2 = ensure_stereo(data2)
 
@@ -55,22 +43,36 @@ if file1 and file2:
         signal1 = data1[:, 0]
         signal2 = data2[:, 1]
 
-        # Trim to shortest length if needed
         # Trim to shortest length
         min_len = min(len(signal1), len(signal2))
         signal1 = signal1[:min_len]
         signal2 = signal2[:min_len]
 
-        # Normalize signals
         # Normalize
         signal1 = signal1 / np.max(np.abs(signal1))
         signal2 = signal2 / np.max(np.abs(signal2))
 
-@@ -65,22 +73,22 @@
+        # Plot waveforms
+        time = np.linspace(0, min_len / sr1, min_len)
+        fig, axs = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+        axs[0].plot(time, signal1, color='blue')
+        axs[0].set_title("Left Channel (File 1)")
+        axs[0].set_ylabel("Amplitude")
+        axs[0].grid(True)
+        axs[1].plot(time, signal2, color='red')
+        axs[1].set_title("Right Channel (File 2)")
+        axs[1].set_ylabel("Amplitude")
+        axs[1].set_xlabel("Time [s]")
+        axs[1].grid(True)
+        st.pyplot(fig)
+
+        # Cross-correlation
+        corr = correlate(signal1, signal2, mode='full')
+        lags = np.arange(-len(signal1) + 1, len(signal1))
+        lag = lags[np.argmax(corr)]
         tdoa = lag / sr1
         st.write(f"🕒 **TDOA**: {tdoa * 1e6:.2f} microseconds")
 
-        # Estimate angle
         # Angle estimation
         try:
             angle_rad = asin(tdoa * SPEED_OF_SOUND / MIC_DISTANCE)
