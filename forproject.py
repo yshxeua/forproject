@@ -98,4 +98,3 @@ webrtc_streamer(
     media_stream_constraints={"audio": True, "video": False}
 )
 
-can this be use using airpods?
