@@ -129,7 +129,7 @@ def plot_waveform(audio):
 
 def plot_angle(angle_deg, is_mono=False):
     if is_mono:
-        placeholder_angle.info("ℹ️ Mono input detected — no spatial info, showing fixed angle 0°")
+        placeholder_angle.info("ℹ️ Mono input detected — DoA estimation unavailable.")
         angle_deg = 0.0  # fixed front angle
 
     if angle_deg is None:
@@ -137,7 +137,6 @@ def plot_angle(angle_deg, is_mono=False):
         placeholder_polar.empty()
         return
 
-    # plot the angle
     fig2 = plt.figure(figsize=(4, 4))
     ax = fig2.add_subplot(111, polar=True)
     ax.set_theta_zero_location('front')
