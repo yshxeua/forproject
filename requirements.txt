@@ -1,4 +1,1 @@
-streamlit
-numpy
-scipy
-matplotlib
+pip install matplotlib numpy scipy streamlit
