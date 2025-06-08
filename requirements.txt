@@ -1,5 +1,6 @@
 streamlit
+streamlit-webrtc
+av
 numpy
-matplotlib
 scipy
-matlab
+matplotlib
