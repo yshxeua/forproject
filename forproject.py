@@ -2,83 +2,95 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
+from scipy.signal import correlate
+from math import asin, degrees
 
-# Custom cyberpunk styling with background
+# Constants
+MIC_DISTANCE = 0.2  # meters
+SPEED_OF_SOUND = 343  # m/s
+
+st.title("🎤 Direction-of-Arrival Estimation with Auto Mono-to-Stereo Conversion")
 st.markdown("""
-    <style>
-    .stApp {
-        background-image: url("https://raw.githubusercontent.com/yshxeua/forproject/main/cyberpunk-bg.jpg");
-        background-size: cover;
-        background-position: center;
-        color: #f1f1f1;
-    }
+Upload **two WAV files** (mono or stereo). If mono, the app will convert them to stereo by duplicating the channel.
+- Left channel from file 1 and right channel from file 2 are used for DoA estimation.
+- Waveforms, TDOA, estimated angle, and polar plot will be displayed.
+""")
 
-    h1 {
-        font-family: 'Orbitron', sans-serif;
-        font-size: 48px;
-        color: #ff00ff;
-        text-shadow: 0 0 10px #ff00ff;
-        text-align: center;
-    }
+def ensure_stereo(data):
+    """Convert mono to stereo by duplicating the channel if needed."""
+    if data.ndim == 1:
+        # Mono -> duplicate channel to stereo
+        data = np.stack((data, data), axis=-1)
+    elif data.shape[1] == 1:
+        # Single channel 2D -> duplicate channel
+        data = np.repeat(data, 2, axis=1)
+    return data
 
-    .stFileUploader label {
-        font-size: 18px;
-        color: #00ffff;
-        font-weight: bold;
-        text-shadow: 0 0 8px #00ffff;
-    }
+file1 = st.file_uploader("Upload WAV file 1", type=["wav"])
+file2 = st.file_uploader("Upload WAV file 2", type=["wav"])
 
-    .stButton>button {
-        background-color: #00ffff;
-        color: #000;
-        border: none;
-        border-radius: 10px;
-        font-size: 18px;
-        padding: 10px 20px;
-        box-shadow: 0 0 10px #00ffff;
-    }
+if file1 and file2:
+    sr1, data1 = wavfile.read(file1)
+    sr2, data2 = wavfile.read(file2)
 
-    .stButton>button:hover {
-        background-color: #ff00ff;
-        color: white;
-    }
+    if sr1 != sr2:
+        st.error("⚠️ Sampling rates do not match.")
+    else:
+        data1 = ensure_stereo(data1)
+        data2 = ensure_stereo(data2)
 
-    .css-1kyxreq, .css-ffhzg2 {
-        background-color: rgba(0,0,0,0.6);
-        padding: 20px;
-        border-radius: 10px;
-    }
-    </style>
+        # Extract left channel from file1 and right channel from file2
+        signal1 = data1[:, 0]
+        signal2 = data2[:, 1]
 
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet">
-""", unsafe_allow_html=True)
+        # Trim to shortest length
+        min_len = min(len(signal1), len(signal2))
+        signal1 = signal1[:min_len]
+        signal2 = signal2[:min_len]
 
-st.title("🔊 Cyberpunk Audio Analyzer")
+        # Normalize
+        signal1 = signal1 / np.max(np.abs(signal1))
+        signal2 = signal2 / np.max(np.abs(signal2))
 
-uploaded_file = st.file_uploader("Upload a WAV file", type=["wav"])
+        # Plot waveforms
+        time = np.linspace(0, min_len / sr1, min_len)
+        fig, axs = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+        axs[0].plot(time, signal1, color='blue')
+        axs[0].set_title("Left Channel (File 1)")
+        axs[0].set_ylabel("Amplitude")
+        axs[0].grid(True)
+        axs[1].plot(time, signal2, color='red')
+        axs[1].set_title("Right Channel (File 2)")
+        axs[1].set_ylabel("Amplitude")
+        axs[1].set_xlabel("Time [s]")
+        axs[1].grid(True)
+        st.pyplot(fig)
 
-if uploaded_file is not None:
-    sample_rate, data = wavfile.read(uploaded_file)
+        # Cross-correlation
+        corr = correlate(signal1, signal2, mode='full')
+        lags = np.arange(-len(signal1) + 1, len(signal1))
+        lag = lags[np.argmax(corr)]
+        tdoa = lag / sr1
+        st.write(f"🕒 **TDOA**: {tdoa * 1e6:.2f} microseconds")
 
-    # Mono check
-    if len(data.shape) == 2:
-        data = data.mean(axis=1)
-    data = data / np.max(np.abs(data))
+        # Angle estimation
+        try:
+            angle_rad = asin(tdoa * SPEED_OF_SOUND / MIC_DISTANCE)
+            angle_deg = degrees(angle_rad)
+            st.success(f"📐 Estimated Direction of Arrival: **{angle_deg:.2f}°**")
+        except ValueError:
+            st.error("🚫 TDOA too large; sound source likely beyond ±90°.")
+            angle_deg = None
 
-    # Waveform
-    st.subheader("📈 Waveform")
-    time = np.linspace(0, len(data) / sample_rate, num=len(data))
-    fig, ax = plt.subplots()
-    ax.plot(time, data, color="#00ffff")
-    ax.set_facecolor("black")
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Amplitude")
-    st.pyplot(fig)
+        # Polar plot
+        if angle_deg is not None:
+            fig2 = plt.figure(figsize=(5, 5))
+            ax = fig2.add_subplot(111, polar=True)
+            ax.set_theta_zero_location('front')
+            ax.set_theta_direction(-1)
+            ax.plot([0, np.deg2rad(angle_deg)], [0, 1], color='magenta', linewidth=3)
+            ax.set_yticklabels([])
+            ax.set_title("Estimated Sound Direction", color='blue')
+            st.pyplot(fig2)
 
-    # Loudest peak
-    max_idx = np.argmax(np.abs(data))
-    max_time = max_idx / sample_rate
-    st.success(f"🟣 Loudest point at {max_time:.2f} seconds")
-
-    st.info("This is a single-mic analysis. To estimate direction, record from multiple positions.")
 
