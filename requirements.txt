@@ -1,2 +1,5 @@
-pip install matplotlib numpy scipy streamlit
-streamlit run forproject.py
+streamlit
+numpy
+matplotlib
+scipy
+matlab
