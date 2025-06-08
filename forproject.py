@@ -1,94 +1,161 @@
 import streamlit as st
+
 import numpy as np
+
 import matplotlib.pyplot as plt
-from scipy.io import wavfile
+
 from scipy.signal import correlate
+
 from math import asin, degrees
 
+import sounddevice as sd
+
+import time
+ 
 # Constants
-MIC_DISTANCE = 0.2  # meters
+
+MIC_DISTANCE = 0.2  # meters between microphones
+
 SPEED_OF_SOUND = 343  # m/s
 
-st.title("🎤 Direction-of-Arrival Estimation with Auto Mono-to-Stereo Conversion")
+SAMPLE_RATE = 44100  # audio sampling rate
+
+DURATION = 1.0  # seconds per sample block
+ 
+st.title("🎤 Real-Time Direction-of-Arrival Estimation")
+
 st.markdown("""
-Upload **two WAV files** (mono or stereo). If mono, the app will convert them to stereo by duplicating the channel.
-- Left channel from file 1 and right channel from file 2 are used for DoA estimation.
-- Waveforms, TDOA, estimated angle, and polar plot will be displayed.
+
+This app captures real-time audio using a stereo microphone setup (like AirPods L/R).  
+
+It calculates **TDOA** via cross-correlation and estimates the **angle of arrival** in degrees.
+
 """)
+ 
+# Control to start/stop
 
-def ensure_stereo(data):
-    """Convert mono to stereo by duplicating the channel if needed."""
-    if data.ndim == 1:
-        # Mono -> duplicate channel to stereo
-        data = np.stack((data, data), axis=-1)
-    elif data.shape[1] == 1:
-        # Single channel 2D -> duplicate channel
-        data = np.repeat(data, 2, axis=1)
-    return data
+start_stream = st.toggle("🎧 Start Real-Time Estimation")
+ 
+# Streamlit display placeholders
 
-file1 = st.file_uploader("Upload WAV file 1", type=["wav"])
-file2 = st.file_uploader("Upload WAV file 2", type=["wav"])
+placeholder_waveform = st.empty()
 
-if file1 and file2:
-    sr1, data1 = wavfile.read(file1)
-    sr2, data2 = wavfile.read(file2)
+placeholder_tdoa = st.empty()
 
-    if sr1 != sr2:
-        st.error("⚠️ Sampling rates do not match.")
-    else:
-        data1 = ensure_stereo(data1)
-        data2 = ensure_stereo(data2)
+placeholder_angle = st.empty()
 
-        # Extract left channel from file1 and right channel from file2
-        signal1 = data1[:, 0]
-        signal2 = data2[:, 1]
+placeholder_polar = st.empty()
+ 
+def estimate_doa(signal1, signal2, sample_rate):
 
-        # Trim to shortest length
-        min_len = min(len(signal1), len(signal2))
-        signal1 = signal1[:min_len]
-        signal2 = signal2[:min_len]
+    # Normalize
 
-        # Normalize
-        signal1 = signal1 / np.max(np.abs(signal1))
-        signal2 = signal2 / np.max(np.abs(signal2))
+    signal1 = signal1 / np.max(np.abs(signal1))
 
-        # Plot waveforms
-        time = np.linspace(0, min_len / sr1, min_len)
-        fig, axs = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
-        axs[0].plot(time, signal1, color='blue')
-        axs[0].set_title("Left Channel (File 1)")
-        axs[0].set_ylabel("Amplitude")
-        axs[0].grid(True)
-        axs[1].plot(time, signal2, color='red')
-        axs[1].set_title("Right Channel (File 2)")
-        axs[1].set_ylabel("Amplitude")
-        axs[1].set_xlabel("Time [s]")
-        axs[1].grid(True)
-        st.pyplot(fig)
+    signal2 = signal2 / np.max(np.abs(signal2))
+ 
+    # Cross-correlation
 
-        # Cross-correlation
-        corr = correlate(signal1, signal2, mode='full')
-        lags = np.arange(-len(signal1) + 1, len(signal1))
-        lag = lags[np.argmax(corr)]
-        tdoa = lag / sr1
-        st.write(f"🕒 **TDOA**: {tdoa * 1e6:.2f} microseconds")
+    corr = correlate(signal1, signal2, mode='full')
 
-        # Angle estimation
+    lags = np.arange(-len(signal1) + 1, len(signal1))
+
+    lag = lags[np.argmax(corr)]
+
+    tdoa = lag / sample_rate
+ 
+    # Estimate angle
+
+    try:
+
+        angle_rad = asin(tdoa * SPEED_OF_SOUND / MIC_DISTANCE)
+
+        angle_deg = degrees(angle_rad)
+
+    except ValueError:
+
+        angle_deg = None
+
+    return tdoa, angle_deg
+ 
+if start_stream:
+
+    st.info("🎙️ Listening... Make sounds from different angles.")
+
+    while start_stream:
+
         try:
-            angle_rad = asin(tdoa * SPEED_OF_SOUND / MIC_DISTANCE)
-            angle_deg = degrees(angle_rad)
-            st.success(f"📐 Estimated Direction of Arrival: **{angle_deg:.2f}°**")
-        except ValueError:
-            st.error("🚫 TDOA too large; sound source likely beyond ±90°.")
-            angle_deg = None
 
-        # Polar plot
-        if angle_deg is not None:
-            fig2 = plt.figure(figsize=(5, 5))
-            ax = fig2.add_subplot(111, polar=True)
-            ax.set_theta_zero_location('front')
-            ax.set_theta_direction(-1)
-            ax.plot([0, np.deg2rad(angle_deg)], [0, 1], color='magenta', linewidth=3)
-            ax.set_yticklabels([])
-            ax.set_title("Estimated Sound Direction", color='blue')
-            st.pyplot(fig2)
+            audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=2, dtype='float32')
+
+            sd.wait()
+ 
+            left = audio[:, 0]
+
+            right = audio[:, 1]
+ 
+            tdoa, angle = estimate_doa(left, right, SAMPLE_RATE)
+ 
+            # Waveform plot
+
+            fig, axs = plt.subplots(2, 1, figsize=(8, 4), sharex=True)
+
+            t = np.linspace(0, DURATION, len(left))
+
+            axs[0].plot(t, left, color='blue')
+
+            axs[0].set_title("Mic 1 (Left)")
+
+            axs[1].plot(t, right, color='red')
+
+            axs[1].set_title("Mic 2 (Right)")
+
+            axs[1].set_xlabel("Time [s]")
+
+            for ax in axs: ax.grid(True)
+
+            placeholder_waveform.pyplot(fig)
+ 
+            # Display TDOA
+
+            placeholder_tdoa.write(f"🕒 **TDOA**: {tdoa * 1e6:.2f} microseconds")
+ 
+            # Display angle
+
+            if angle is not None and abs(tdoa * SPEED_OF_SOUND) <= MIC_DISTANCE:
+
+                placeholder_angle.success(f"📐 Estimated Angle: **{angle:.2f}°**")
+
+                # Polar plot
+
+                fig2 = plt.figure(figsize=(4, 4))
+
+                ax = fig2.add_subplot(111, polar=True)
+
+                ax.set_theta_zero_location('front')
+
+                ax.set_theta_direction(-1)
+
+                ax.plot([0, np.deg2rad(angle)], [0, 1], color='magenta', linewidth=3)
+
+                ax.set_yticklabels([])
+
+                ax.set_title("Direction of Arrival")
+
+                placeholder_polar.pyplot(fig2)
+
+            else:
+
+                placeholder_angle.error("🚫 Angle estimation failed. Try again with clearer signal.")
+
+                placeholder_polar.empty()
+ 
+            time.sleep(0.1)  # prevent overloading the CPU
+
+        except Exception as e:
+
+            st.error(f"🎤 Error: {e}")
+
+            break
+
+ 
