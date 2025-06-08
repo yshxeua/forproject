@@ -4,4 +4,4 @@ matplotlib
 scipy
 matlab
 pip install streamlit sounddevice numpy matplotlib scipy
-streamlit run your_script_name.py
+streamlit run forproject.py
