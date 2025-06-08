@@ -1,5 +1,5 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import av
 import numpy as np
 import matplotlib.pyplot as plt
@@ -93,7 +93,9 @@ class AudioProcessor(AudioProcessorBase):
 # Start the WebRTC mic stream
 webrtc_streamer(
     key="doa-audio",
-    mode="SENDONLY",
+    mode=WebRtcMode.SENDONLY,
+    ...
+)
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False}
 )
