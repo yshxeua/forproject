@@ -48,8 +48,9 @@ class AudioProcessor(AudioProcessorBase):
             else:
                 self.sound_detected = False
 
+            # Mono: fixed angle 0°, no TDOA
             AudioProcessor.latest_tdoa = None
-            AudioProcessor.latest_angle = None
+            AudioProcessor.latest_angle = 0.0
 
         elif len(audio.shape) == 2 and audio.shape[0] >= 2:
             # Stereo input
@@ -129,8 +130,8 @@ def plot_waveform(audio):
 
 def plot_angle(angle_deg, is_mono=False):
     if is_mono:
-        placeholder_angle.info("ℹ️ Mono input detected — DoA estimation unavailable.")
-        angle_deg = 0.0  # fixed front angle
+        placeholder_angle.info("ℹ️ Mono input detected — DoA estimation shown as fixed 0°.")
+        angle_deg = 0.0
 
     if angle_deg is None:
         placeholder_angle.info("ℹ️ No angle estimated yet.")
