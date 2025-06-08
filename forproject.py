@@ -94,8 +94,6 @@ class AudioProcessor(AudioProcessorBase):
 webrtc_streamer(
     key="doa-audio",
     mode=WebRtcMode.SENDONLY,
-    ...
-)
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False}
 )
