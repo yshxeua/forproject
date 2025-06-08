@@ -35,7 +35,6 @@ class AudioProcessor(AudioProcessorBase):
 
     def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
         audio = frame.to_ndarray()
-        # Debug: print(audio.shape)
         
         if len(audio.shape) == 1:
             # Mono input
@@ -128,25 +127,25 @@ def plot_waveform(audio):
             ax.grid(True)
         placeholder_waveform.pyplot(fig)
 
-def plot_angle(angle_deg):
+def plot_angle(angle_deg, is_mono=False):
+    if is_mono:
+        placeholder_angle.info("ℹ️ Mono input detected — no spatial info, showing fixed angle 0°")
+        angle_deg = 0.0  # fixed front angle
+
     if angle_deg is None:
-        placeholder_angle.info("ℹ️ Mono input detected — DoA estimation unavailable.")
+        placeholder_angle.info("ℹ️ No angle estimated yet.")
         placeholder_polar.empty()
         return
 
-    if abs(angle_deg) <= 90:
-        placeholder_angle.success(f"📐 Estimated Angle: `{angle_deg:.2f}°`")
-        fig2 = plt.figure(figsize=(4, 4))
-        ax = fig2.add_subplot(111, polar=True)
-        ax.set_theta_zero_location('front')
-        ax.set_theta_direction(-1)
-        ax.plot([0, np.deg2rad(angle_deg)], [0, 1], color='magenta', linewidth=3)
-        ax.set_yticklabels([])
-        ax.set_title("Direction of Arrival")
-        placeholder_polar.pyplot(fig2)
-    else:
-        placeholder_angle.error("🚫 Angle estimation failed.")
-        placeholder_polar.empty()
+    # plot the angle
+    fig2 = plt.figure(figsize=(4, 4))
+    ax = fig2.add_subplot(111, polar=True)
+    ax.set_theta_zero_location('front')
+    ax.set_theta_direction(-1)
+    ax.plot([0, np.deg2rad(angle_deg)], [0, 1], color='magenta', linewidth=3)
+    ax.set_yticklabels([])
+    ax.set_title("Direction of Arrival")
+    placeholder_polar.pyplot(fig2)
 
 def plot_tdoa(tdoa):
     if tdoa is not None:
@@ -161,12 +160,16 @@ webrtc_ctx = webrtc_streamer(
     media_stream_constraints={"audio": True, "video": False}
 )
 
+import time
 while True:
     if AudioProcessor.latest_audio is not None:
         plot_waveform(AudioProcessor.latest_audio)
-    if AudioProcessor.latest_tdoa is not None:
+    if AudioProcessor.input_channels == 1:
+        plot_angle(None, is_mono=True)
+        placeholder_tdoa.empty()
+    else:
         plot_tdoa(AudioProcessor.latest_tdoa)
-    plot_angle(AudioProcessor.latest_angle)
+        plot_angle(AudioProcessor.latest_angle)
 
     if hasattr(webrtc_ctx.audio_processor, "sound_detected"):
         if webrtc_ctx.audio_processor.sound_detected:
