@@ -1,161 +1,99 @@
 import streamlit as st
-
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+import av
 import numpy as np
-
 import matplotlib.pyplot as plt
-
 from scipy.signal import correlate
-
 from math import asin, degrees
 
-import sounddevice as sd
-
-import time
- 
 # Constants
+MIC_DISTANCE = 0.2  # distance between mics in meters
+SPEED_OF_SOUND = 343  # speed of sound in m/s
+SAMPLE_RATE = 48000  # WebRTC audio sample rate
 
-MIC_DISTANCE = 0.2  # meters between microphones
-
-SPEED_OF_SOUND = 343  # m/s
-
-SAMPLE_RATE = 44100  # audio sampling rate
-
-DURATION = 1.0  # seconds per sample block
- 
+st.set_page_config(page_title="Real-Time DoA Estimation", layout="centered")
 st.title("🎤 Real-Time Direction-of-Arrival Estimation")
 
 st.markdown("""
-
-This app captures real-time audio using a stereo microphone setup (like AirPods L/R).  
-
-It calculates **TDOA** via cross-correlation and estimates the **angle of arrival** in degrees.
-
+This app captures audio **in real time** using a stereo mic setup (like AirPods or stereo USB mics),  
+then estimates the **direction of arrival (DoA)** of the sound using **TDOA** and **cross-correlation**.
 """)
- 
-# Control to start/stop
 
-start_stream = st.toggle("🎧 Start Real-Time Estimation")
- 
-# Streamlit display placeholders
-
+# Placeholders for dynamic content
 placeholder_waveform = st.empty()
-
 placeholder_tdoa = st.empty()
-
 placeholder_angle = st.empty()
-
 placeholder_polar = st.empty()
- 
-def estimate_doa(signal1, signal2, sample_rate):
 
-    # Normalize
+class AudioProcessor(AudioProcessorBase):
+    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
+        audio = frame.to_ndarray()
+        
+        # Check stereo input
+        if audio.shape[0] < 2:
+            return frame  # Mono or not enough data
+        
+        # Separate channels
+        left = audio[0::2]
+        right = audio[1::2]
 
-    signal1 = signal1 / np.max(np.abs(signal1))
+        # Normalize
+        if np.max(np.abs(left)) > 0:
+            left = left / np.max(np.abs(left))
+        if np.max(np.abs(right)) > 0:
+            right = right / np.max(np.abs(right))
 
-    signal2 = signal2 / np.max(np.abs(signal2))
- 
-    # Cross-correlation
+        # Cross-correlation
+        corr = correlate(left, right, mode='full')
+        lags = np.arange(-len(left) + 1, len(left))
+        lag = lags[np.argmax(corr)]
+        tdoa = lag / SAMPLE_RATE
 
-    corr = correlate(signal1, signal2, mode='full')
-
-    lags = np.arange(-len(signal1) + 1, len(signal1))
-
-    lag = lags[np.argmax(corr)]
-
-    tdoa = lag / sample_rate
- 
-    # Estimate angle
-
-    try:
-
-        angle_rad = asin(tdoa * SPEED_OF_SOUND / MIC_DISTANCE)
-
-        angle_deg = degrees(angle_rad)
-
-    except ValueError:
-
-        angle_deg = None
-
-    return tdoa, angle_deg
- 
-if start_stream:
-
-    st.info("🎙️ Listening... Make sounds from different angles.")
-
-    while start_stream:
-
+        # Angle estimation
         try:
+            angle_rad = asin(tdoa * SPEED_OF_SOUND / MIC_DISTANCE)
+            angle_deg = degrees(angle_rad)
+        except ValueError:
+            angle_deg = None
 
-            audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=2, dtype='float32')
+        # Plot waveforms
+        t = np.linspace(0, len(left) / SAMPLE_RATE, len(left))
+        fig, axs = plt.subplots(2, 1, figsize=(6, 3), sharex=True)
+        axs[0].plot(t, left, color='blue')
+        axs[0].set_title("Mic 1 (Left)")
+        axs[1].plot(t, right, color='red')
+        axs[1].set_title("Mic 2 (Right)")
+        axs[1].set_xlabel("Time [s]")
+        for ax in axs:
+            ax.grid(True)
+        placeholder_waveform.pyplot(fig)
 
-            sd.wait()
- 
-            left = audio[:, 0]
+        # Show TDOA
+        placeholder_tdoa.markdown(f"🕒 **TDOA**: `{tdoa * 1e6:.2f}` microseconds")
 
-            right = audio[:, 1]
- 
-            tdoa, angle = estimate_doa(left, right, SAMPLE_RATE)
- 
-            # Waveform plot
+        # Show angle
+        if angle_deg is not None and abs(tdoa * SPEED_OF_SOUND) <= MIC_DISTANCE:
+            placeholder_angle.success(f"📐 Estimated Angle: `{angle_deg:.2f}°`")
+            
+            # Polar plot
+            fig2 = plt.figure(figsize=(4, 4))
+            ax = fig2.add_subplot(111, polar=True)
+            ax.set_theta_zero_location('front')
+            ax.set_theta_direction(-1)
+            ax.plot([0, np.deg2rad(angle_deg)], [0, 1], color='magenta', linewidth=3)
+            ax.set_yticklabels([])
+            ax.set_title("Direction of Arrival")
+            placeholder_polar.pyplot(fig2)
+        else:
+            placeholder_angle.error("🚫 Angle estimation failed. Use stereo input.")
+            placeholder_polar.empty()
 
-            fig, axs = plt.subplots(2, 1, figsize=(8, 4), sharex=True)
+        return frame
 
-            t = np.linspace(0, DURATION, len(left))
-
-            axs[0].plot(t, left, color='blue')
-
-            axs[0].set_title("Mic 1 (Left)")
-
-            axs[1].plot(t, right, color='red')
-
-            axs[1].set_title("Mic 2 (Right)")
-
-            axs[1].set_xlabel("Time [s]")
-
-            for ax in axs: ax.grid(True)
-
-            placeholder_waveform.pyplot(fig)
- 
-            # Display TDOA
-
-            placeholder_tdoa.write(f"🕒 **TDOA**: {tdoa * 1e6:.2f} microseconds")
- 
-            # Display angle
-
-            if angle is not None and abs(tdoa * SPEED_OF_SOUND) <= MIC_DISTANCE:
-
-                placeholder_angle.success(f"📐 Estimated Angle: **{angle:.2f}°**")
-
-                # Polar plot
-
-                fig2 = plt.figure(figsize=(4, 4))
-
-                ax = fig2.add_subplot(111, polar=True)
-
-                ax.set_theta_zero_location('front')
-
-                ax.set_theta_direction(-1)
-
-                ax.plot([0, np.deg2rad(angle)], [0, 1], color='magenta', linewidth=3)
-
-                ax.set_yticklabels([])
-
-                ax.set_title("Direction of Arrival")
-
-                placeholder_polar.pyplot(fig2)
-
-            else:
-
-                placeholder_angle.error("🚫 Angle estimation failed. Try again with clearer signal.")
-
-                placeholder_polar.empty()
- 
-            time.sleep(0.1)  # prevent overloading the CPU
-
-        except Exception as e:
-
-            st.error(f"🎤 Error: {e}")
-
-            break
-
- 
+# Start the WebRTC mic stream
+webrtc_streamer(
+    key="doa-audio",
+    mode="SENDONLY",
+    audio_processor_factory=AudioProcessor,
+    media_stream_constraints={"audio": True, "video": False}
+)
