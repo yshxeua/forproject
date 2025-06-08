@@ -8,24 +8,28 @@ from math import asin, degrees
 import time
 
 # Constants
-MIC_DISTANCE = 0.2
-SPEED_OF_SOUND = 343
-SAMPLE_RATE = 48000
-SOUND_THRESHOLD = 0.01
+MIC_DISTANCE = 0.2  # distance between mics in meters
+SPEED_OF_SOUND = 343  # m/s
+SAMPLE_RATE = 48000  # Hz
+SOUND_THRESHOLD = 0.001  # lowered for sensitivity
 
+# Page setup
 st.set_page_config(page_title="Real-Time DoA Estimation", layout="centered")
 st.title("🎤 Real-Time Direction-of-Arrival Estimation")
 
+# UI placeholders
 placeholder_waveform = st.empty()
 placeholder_tdoa = st.empty()
 placeholder_angle = st.empty()
 placeholder_polar = st.empty()
 placeholder_status = st.empty()
 
+# Helper to check if sound is significant
 def is_sound_present(signal, threshold=SOUND_THRESHOLD):
     rms = np.sqrt(np.mean(signal**2))
     return rms > threshold
 
+# Audio Processor
 class AudioProcessor(AudioProcessorBase):
     latest_audio = None
     latest_tdoa = None
@@ -35,20 +39,19 @@ class AudioProcessor(AudioProcessorBase):
 
     def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
         audio = frame.to_ndarray()
-        
+
+        # Debugging info
+        print(f"Audio shape: {audio.shape}")
+        print(f"RMS: {np.sqrt(np.mean(audio**2))}")
+
         if len(audio.shape) == 1:
             # Mono input
             self.input_channels = 1
             mono = audio
             if np.max(np.abs(mono)) > 0:
                 mono = mono / np.max(np.abs(mono))
-            if is_sound_present(mono):
-                self.sound_detected = True
-                AudioProcessor.latest_audio = audio.copy()
-            else:
-                self.sound_detected = False
-
-            # Mono: fixed angle 0°, no TDOA
+            self.sound_detected = is_sound_present(mono)
+            AudioProcessor.latest_audio = audio.copy() if self.sound_detected else None
             AudioProcessor.latest_tdoa = None
             AudioProcessor.latest_angle = 0.0
 
@@ -57,14 +60,13 @@ class AudioProcessor(AudioProcessorBase):
             self.input_channels = audio.shape[0]
             left = audio[0]
             right = audio[1]
-            if np.max(np.abs(left)) > 0:
-                left = left / np.max(np.abs(left))
-            if np.max(np.abs(right)) > 0:
-                right = right / np.max(np.abs(right))
+            left = left / np.max(np.abs(left)) if np.max(np.abs(left)) > 0 else left
+            right = right / np.max(np.abs(right)) if np.max(np.abs(right)) > 0 else right
 
-            if is_sound_present(left) or is_sound_present(right):
-                self.sound_detected = True
-                AudioProcessor.latest_audio = audio.copy()
+            self.sound_detected = is_sound_present(left) or is_sound_present(right)
+            AudioProcessor.latest_audio = audio.copy() if self.sound_detected else None
+
+            if self.sound_detected:
                 corr = correlate(left, right, mode='full')
                 lags = np.arange(-len(left) + 1, len(left))
                 lag = lags[np.argmax(corr)]
@@ -78,12 +80,11 @@ class AudioProcessor(AudioProcessorBase):
                     angle_deg = None
                 AudioProcessor.latest_angle = angle_deg
             else:
-                self.sound_detected = False
                 AudioProcessor.latest_tdoa = None
                 AudioProcessor.latest_angle = None
 
         else:
-            # Unsupported shape or zero channels
+            # Invalid or unsupported input
             self.sound_detected = False
             AudioProcessor.latest_audio = None
             AudioProcessor.latest_tdoa = None
@@ -91,15 +92,14 @@ class AudioProcessor(AudioProcessorBase):
 
         return frame
 
+# Plotting waveform
 def plot_waveform(audio):
     if audio is None:
         placeholder_waveform.empty()
         return
 
     if len(audio.shape) == 1:
-        mono = audio
-        if np.max(np.abs(mono)) > 0:
-            mono = mono / np.max(np.abs(mono))
+        mono = audio / np.max(np.abs(audio)) if np.max(np.abs(audio)) > 0 else audio
         t = np.linspace(0, len(mono) / SAMPLE_RATE, len(mono))
         fig, ax = plt.subplots(figsize=(6, 2))
         ax.plot(t, mono, color='blue')
@@ -111,12 +111,8 @@ def plot_waveform(audio):
     elif len(audio.shape) == 2 and audio.shape[0] >= 2:
         left = audio[0]
         right = audio[1]
-
-        if np.max(np.abs(left)) > 0:
-            left = left / np.max(np.abs(left))
-        if np.max(np.abs(right)) > 0:
-            right = right / np.max(np.abs(right))
-
+        left = left / np.max(np.abs(left)) if np.max(np.abs(left)) > 0 else left
+        right = right / np.max(np.abs(right)) if np.max(np.abs(right)) > 0 else right
         t = np.linspace(0, len(left) / SAMPLE_RATE, len(left))
         fig, axs = plt.subplots(2, 1, figsize=(6, 3), sharex=True)
         axs[0].plot(t, left, color='blue')
@@ -128,6 +124,14 @@ def plot_waveform(audio):
             ax.grid(True)
         placeholder_waveform.pyplot(fig)
 
+# Plot TDOA value
+def plot_tdoa(tdoa):
+    if tdoa is not None:
+        placeholder_tdoa.markdown(f"🕒 **TDOA**: `{tdoa * 1e6:.2f}` microseconds")
+    else:
+        placeholder_tdoa.empty()
+
+# Plot angle and polar chart
 def plot_angle(angle_deg, is_mono=False):
     if is_mono:
         placeholder_angle.info("ℹ️ Mono input detected — DoA estimation shown as fixed 0°.")
@@ -147,23 +151,23 @@ def plot_angle(angle_deg, is_mono=False):
     ax.set_title("Direction of Arrival")
     placeholder_polar.pyplot(fig2)
 
-def plot_tdoa(tdoa):
-    if tdoa is not None:
-        placeholder_tdoa.markdown(f"🕒 **TDOA**: `{tdoa * 1e6:.2f}` microseconds")
-    else:
-        placeholder_tdoa.empty()
-
+# WebRTC with STUN configuration
 webrtc_ctx = webrtc_streamer(
     key="doa-audio",
     mode=WebRtcMode.SENDONLY,
     audio_processor_factory=AudioProcessor,
-    media_stream_constraints={"audio": True, "video": False}
+    media_stream_constraints={"audio": True, "video": False},
+    rtc_configuration={
+        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+    }
 )
 
+# UI loop
 import time
 while True:
     if AudioProcessor.latest_audio is not None:
         plot_waveform(AudioProcessor.latest_audio)
+
     if AudioProcessor.input_channels == 1:
         plot_angle(None, is_mono=True)
         placeholder_tdoa.empty()
