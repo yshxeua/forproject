@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy.signal import correlate
 from math import asin, degrees
+from pydub import AudioSegment
+import io
 
 # Constants
 MIC_DISTANCE = 0.2  # meters
@@ -11,7 +13,7 @@ SPEED_OF_SOUND = 343  # m/s
 
 st.title("🎤 Direction-of-Arrival Estimation with Auto Mono-to-Stereo Conversion")
 st.markdown("""
-Upload **two WAV files** (mono or stereo). If mono, the app will convert them to stereo by duplicating the channel.
+Upload **two audio files** (WAV or M4A). If mono, the app will convert them to stereo by duplicating the channel.
 - Left channel from file 1 and right channel from file 2 are used for DoA estimation.
 - Waveforms, TDOA, estimated angle, and polar plot will be displayed.
 """)
@@ -19,19 +21,35 @@ Upload **two WAV files** (mono or stereo). If mono, the app will convert them to
 def ensure_stereo(data):
     """Convert mono to stereo by duplicating the channel if needed."""
     if data.ndim == 1:
-        # Mono -> duplicate channel to stereo
         data = np.stack((data, data), axis=-1)
     elif data.shape[1] == 1:
-        # Single channel 2D -> duplicate channel
         data = np.repeat(data, 2, axis=1)
     return data
 
-file1 = st.file_uploader("Upload WAV file 1", type=["wav"])
-file2 = st.file_uploader("Upload WAV file 2", type=["wav"])
+def load_audio(file):
+    """Load WAV or M4A file and return sample_rate, np.ndarray data."""
+    if file.name.endswith(".wav"):
+        sr, data = wavfile.read(file)
+        return sr, data
+    elif file.name.endswith(".m4a"):
+        audio = AudioSegment.from_file(file, format="m4a")
+        sr = audio.frame_rate
+        samples = np.array(audio.get_array_of_samples())
+        if audio.channels == 2:
+            data = samples.reshape((-1, 2))
+        else:
+            data = samples
+        return sr, data
+    else:
+        raise ValueError("Unsupported file type")
+
+# File upload
+file1 = st.file_uploader("Upload Audio File 1", type=["wav", "m4a"])
+file2 = st.file_uploader("Upload Audio File 2", type=["wav", "m4a"])
 
 if file1 and file2:
-    sr1, data1 = wavfile.read(file1)
-    sr2, data2 = wavfile.read(file2)
+    sr1, data1 = load_audio(file1)
+    sr2, data2 = load_audio(file2)
 
     if sr1 != sr2:
         st.error("⚠️ Sampling rates do not match.")
@@ -39,11 +57,10 @@ if file1 and file2:
         data1 = ensure_stereo(data1)
         data2 = ensure_stereo(data2)
 
-        # Extract left channel from file1 and right channel from file2
+        # Use left channel from file1 and right channel from file2
         signal1 = data1[:, 0]
         signal2 = data2[:, 1]
 
-        # Trim to shortest length
         min_len = min(len(signal1), len(signal2))
         signal1 = signal1[:min_len]
         signal2 = signal2[:min_len]
