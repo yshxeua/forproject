@@ -3,3 +3,5 @@ numpy
 matplotlib
 scipy
 matlab
+pip install pydub
+sudo apt-get install ffmpeg  # or brew install ffmpeg (on macOS)
