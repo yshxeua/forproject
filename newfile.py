@@ -2,29 +2,42 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
-from scipy.signal import correlate
+from scipy.signal import correlate, windows
 from math import asin, degrees
+import sys
 
 # Constants
 MIC_DISTANCE = 0.2  # meters
 SPEED_OF_SOUND = 343  # m/s
 
-st.title("🎤 Direction-of-Arrival Estimation with Auto Mono-to-Stereo Conversion")
+st.title("🎤 Direction-of-Arrival Estimation (Improved Accuracy)")
 st.markdown("""
-Upload **two WAV files** (mono or stereo). If mono, the app will convert them to stereo by duplicating the channel.
-- Left channel from file 1 and right channel from file 2 are used for DoA estimation.
-- Waveforms, TDOA, estimated angle, and polar plot will be displayed.
+Upload **two WAV files** (mono or stereo). If mono, they will be converted to stereo by duplicating the channel.
+- Left channel from File 1 and right channel from File 2 are used for DoA estimation.
+- Windowing, DC removal, sub-sample interpolation, and polar plots are included for better accuracy.
 """)
 
 def ensure_stereo(data):
     """Convert mono to stereo by duplicating the channel if needed."""
     if data.ndim == 1:
-        # Mono -> duplicate channel to stereo
-        data = np.stack((data, data), axis=-1)
+        return np.stack((data, data), axis=-1)
     elif data.shape[1] == 1:
-        # Single channel 2D -> duplicate channel
-        data = np.repeat(data, 2, axis=1)
+        return np.repeat(data, 2, axis=1)
     return data
+
+def sub_sample_peak(corr, lags):
+    """Estimate the peak with parabolic interpolation for sub-sample accuracy."""
+    peak_idx = np.argmax(corr)
+    if 1 < peak_idx < len(corr) - 2:
+        y0, y1, y2 = corr[peak_idx - 1], corr[peak_idx], corr[peak_idx + 1]
+        denom = (y0 - 2 * y1 + y2)
+        if denom != 0:
+            delta = 0.5 * (y0 - y2) / denom
+        else:
+            delta = 0
+        refined_lag = lags[peak_idx] + delta
+        return refined_lag
+    return lags[peak_idx]
 
 file1 = st.file_uploader("Upload WAV file 1", type=["wav"])
 file2 = st.file_uploader("Upload WAV file 2", type=["wav"])
@@ -39,20 +52,25 @@ if file1 and file2:
         data1 = ensure_stereo(data1)
         data2 = ensure_stereo(data2)
 
-        # Extract left channel from file1 and right channel from file2
-        signal1 = data1[:, 0]
-        signal2 = data2[:, 1]
+        signal1 = data1[:, 0].astype(np.float64)
+        signal2 = data2[:, 1].astype(np.float64)
 
-        # Trim to shortest length
         min_len = min(len(signal1), len(signal2))
         signal1 = signal1[:min_len]
         signal2 = signal2[:min_len]
 
-        # Normalize
-        signal1 = signal1 / np.max(np.abs(signal1))
-        signal2 = signal2 / np.max(np.abs(signal2))
+        # Normalize and zero-mean
+        signal1 -= np.mean(signal1)
+        signal2 -= np.mean(signal2)
+        signal1 /= np.max(np.abs(signal1))
+        signal2 /= np.max(np.abs(signal2))
 
-        # Plot waveforms
+        # Apply Hann window
+        window = windows.hann(min_len)
+        signal1 *= window
+        signal2 *= window
+
+        # Plot signals
         time = np.linspace(0, min_len / sr1, min_len)
         fig, axs = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
         axs[0].plot(time, signal1, color='blue')
@@ -66,12 +84,12 @@ if file1 and file2:
         axs[1].grid(True)
         st.pyplot(fig)
 
-        # Cross-correlation
+        # Cross-correlation with interpolation
         corr = correlate(signal1, signal2, mode='full')
         lags = np.arange(-len(signal1) + 1, len(signal1))
-        lag = lags[np.argmax(corr)]
-        tdoa = lag / sr1
-        st.write(f"🕒 **TDOA**: {tdoa * 1e6:.2f} microseconds")
+        refined_lag = sub_sample_peak(corr, lags)
+        tdoa = refined_lag / sr1
+        st.write(f"🕒 **Refined TDOA**: {tdoa * 1e6:.2f} microseconds")
 
         # Angle estimation
         try:
