@@ -10,11 +10,16 @@ from scipy.signal import windows
 MIC_DISTANCE = 0.2  # meters
 SPEED_OF_SOUND = 343  # m/s
 
-st.title("🎯 Accurate Direction-of-Arrival Estimation")
+st.title("🎯 Direction-of-Arrival Estimation Using Microphone Array")
 st.markdown("""
-Upload **two WAV files** (mono or stereo). If mono, they will be converted to stereo by duplicating the channel.
-- This version uses GCC-PHAT for more robust TDOA estimation.
-- Includes sub-sample accuracy and improved visualization.
+Objective: 
+Estimate the direction from which a sound is coming using time delays between microphones. 
+Instructions: 
+Set up two microphones spaced apart. 
+Record a clap or sound from various angles. 
+Use cross-correlation to calculate time difference of arrival (TDOA). 
+Calculate the angle of arrival based on microphone distance and TDOA. 
+Display results in degrees or on a polar plot. 
 """)
 
 def ensure_stereo(data):
