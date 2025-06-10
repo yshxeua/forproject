@@ -98,10 +98,10 @@ if file1 and file2:
         # Polar plot
         if angle_deg is not None:
             fig2 = plt.figure(figsize=(5, 5))
-            ax = fig2.add_subplot(111, polar=True)
-            ax.set_theta_zero_location('front')
-            ax.set_theta_direction(-1)
-            ax.plot([0, np.deg2rad(angle_deg)], [0, 1], color='magenta', linewidth=3)
-            ax.set_yticklabels([])
-            ax.set_title("Estimated Sound Direction", color='blue')
-            st.pyplot(fig2)
+ax = fig2.add_subplot(111, polar=True)
+ax.set_theta_zero_location('N')      # Replaces the invalid 'front'
+ax.set_theta_direction(-1)           # Optional: counter-clockwise
+ax.plot([0, np.deg2rad(angle_deg)], [0, 1], color='magenta', linewidth=3)
+ax.set_yticklabels([])
+ax.set_title("Estimated Sound Direction", color='blue')
+st.pyplot(fig2)
