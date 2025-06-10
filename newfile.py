@@ -10,7 +10,7 @@ import sys
 MIC_DISTANCE = 0.2  # meters
 SPEED_OF_SOUND = 343  # m/s
 
-st.title("🎤 Direction-of-Arrival Estimation (Improved Accuracy)")
+st.title("🎤 Direction-of-Arrival Estimation")
 st.markdown("""
 Upload **two WAV files** (mono or stereo). If mono, they will be converted to stereo by duplicating the channel.
 - Left channel from File 1 and right channel from File 2 are used for DoA estimation.
